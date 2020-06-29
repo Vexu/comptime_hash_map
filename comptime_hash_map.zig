@@ -1,4 +1,4 @@
-const std = @import("std.zig");
+const std = @import("std");
 const hash_map = std.hash_map;
 const testing = std.testing;
 const math = std.math;
@@ -33,8 +33,8 @@ pub fn ComptimeHashMap(comptime K: type, comptime V: type, comptime hash: fn (ke
     var max_distance_from_start_index = 0;
 
     slot_loop: for (values) |kv| {
-        var key: K = kv[0];
-        var value: V = kv[1];
+        var key: K = kv.@"0";
+        var value: V = kv.@"1";
 
         const start_index = @as(usize, hash(key)) & (size - 1);
 

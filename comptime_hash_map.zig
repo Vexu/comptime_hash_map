@@ -4,18 +4,18 @@ const testing = std.testing;
 const math = std.math;
 
 /// A comptime hashmap constructed with automatically selected hash and eql functions.
-pub fn AutoComptimeHashMap(comptime K: type, comptime V: type, comptime values: var) type {
+pub fn AutoComptimeHashMap(comptime K: type, comptime V: type, comptime values: anytype) type {
     return ComptimeHashMap(K, V, hash_map.getAutoHashFn(K), hash_map.getAutoEqlFn(K), values);
 }
 
 /// Builtin hashmap for strings as keys.
-pub fn ComptimeStringHashMap(comptime V: type, comptime values: var) type {
+pub fn ComptimeStringHashMap(comptime V: type, comptime values: anytype) type {
     return ComptimeHashMap([]const u8, V, hash_map.hashString, hash_map.eqlString, values);
 }
 
 /// A hashmap which is constructed at compile time from constant values.
 /// Intended to be used as a faster lookup table.
-pub fn ComptimeHashMap(comptime K: type, comptime V: type, comptime hash: fn (key: K) u32, comptime eql: fn (a: K, b: K) bool, comptime values: var) type {
+pub fn ComptimeHashMap(comptime K: type, comptime V: type, comptime hash: fn (key: K) u32, comptime eql: fn (a: K, b: K) bool, comptime values: anytype) type {
     std.debug.assert(values.len != 0);
     @setEvalBranchQuota(1000 * values.len);
 

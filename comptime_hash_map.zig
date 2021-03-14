@@ -15,7 +15,7 @@ pub fn ComptimeStringHashMap(comptime V: type, comptime values: anytype) type {
 
 /// A hashmap which is constructed at compile time from constant values.
 /// Intended to be used as a faster lookup table.
-pub fn ComptimeHashMap(comptime K: type, comptime V: type, comptime hash: fn (key: K) u32, comptime eql: fn (a: K, b: K) bool, comptime values: anytype) type {
+pub fn ComptimeHashMap(comptime K: type, comptime V: type, comptime hash: fn (key: K) u64, comptime eql: fn (a: K, b: K) bool, comptime values: anytype) type {
     std.debug.assert(values.len != 0);
     @setEvalBranchQuota(1000 * values.len);
 

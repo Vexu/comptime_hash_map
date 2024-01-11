@@ -28,9 +28,9 @@ pub fn ComptimeHashMap(comptime K: type, comptime V: type, comptime hash: fn (ke
 
     // ensure that the hash map will be at most 60% full
     const size = math.ceilPowerOfTwo(usize, values.len * 5 / 3) catch unreachable;
-    var slots = [1]Entry{.{}} ** size;
+    comptime var slots = [1]Entry{.{}} ** size;
 
-    var max_distance_from_start_index = 0;
+    comptime var max_distance_from_start_index = 0;
 
     slot_loop: for (values) |kv| {
         var key: K = kv.@"0";
@@ -51,7 +51,7 @@ pub fn ComptimeHashMap(comptime K: type, comptime V: type, comptime hash: fn (ke
                 if (entry.distance_from_start_index < distance_from_start_index) {
                     // robin hood to the rescue
                     const tmp = slots[index];
-                    max_distance_from_start_index = math.max(max_distance_from_start_index, distance_from_start_index);
+                    max_distance_from_start_index = @max(max_distance_from_start_index, distance_from_start_index);
                     entry.* = .{
                         .used = true,
                         .distance_from_start_index = distance_from_start_index,
@@ -65,7 +65,7 @@ pub fn ComptimeHashMap(comptime K: type, comptime V: type, comptime hash: fn (ke
                 continue;
             }
 
-            max_distance_from_start_index = math.max(distance_from_start_index, max_distance_from_start_index);
+            max_distance_from_start_index = @max(distance_from_start_index, max_distance_from_start_index);
             entry.* = .{
                 .used = true,
                 .distance_from_start_index = distance_from_start_index,

@@ -47,7 +47,7 @@ pub fn ComptimeHashMap(comptime K: type, comptime V: type, comptime ctx: type, c
             const index = (start_index + roll_over) & (size - 1);
             const entry = &slots[index];
 
-            if (entry.used and !ctx.eql(entry.key, key)) {
+            if (entry.used and !ctx.eql(undefined, entry.key, key)) {
                 if (entry.distance_from_start_index < distance_from_start_index) {
                     // robin hood to the rescue
                     const tmp = slots[index];

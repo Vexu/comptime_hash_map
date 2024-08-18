@@ -5,12 +5,7 @@ const math = std.math;
 
 /// A comptime hashmap constructed with automatically selected hash and eql functions.
 pub fn AutoComptimeHashMap(comptime K: type, comptime V: type, comptime values: anytype) type {
-    return ComptimeHashMap(
-        K,
-        V,
-        hash_map.AutoContext(K),
-        values,
-    );
+    return ComptimeHashMap(K, V, hash_map.AutoContext(K), values);
 }
 
 /// Builtin hashmap for strings as keys.

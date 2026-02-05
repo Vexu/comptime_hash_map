@@ -1,7 +1,3 @@
-const std = @import("std");
-const hash_map = std.hash_map;
-const testing = std.testing;
-const math = std.math;
 
 /// A comptime hashmap constructed with automatically selected hash and eql functions.
 pub fn AutoComptimeHashMap(comptime K: type, comptime V: type, comptime values: anytype) type {
@@ -20,7 +16,6 @@ pub fn ComptimeHashMap(comptime K: type, comptime V: type, comptime ctx: type, c
     @setEvalBranchQuota(1000 * values.len);
 
     const Entry = struct {
-        distance_from_start_index: usize = 0,
         key: K = undefined,
         val: V = undefined,
         used: bool = false,
@@ -29,6 +24,7 @@ pub fn ComptimeHashMap(comptime K: type, comptime V: type, comptime ctx: type, c
     // ensure that the hash map will be at most 60% full
     const size = math.ceilPowerOfTwo(usize, values.len * 5 / 3) catch unreachable;
     comptime var slots = [1]Entry{.{}} ** size;
+    comptime var distance: [size]usize = .{0} ** size;
 
     comptime var max_distance_from_start_index = 0;
 
@@ -36,7 +32,7 @@ pub fn ComptimeHashMap(comptime K: type, comptime V: type, comptime ctx: type, c
         var key: K = kv.@"0";
         var value: V = kv.@"1";
 
-        const start_index = @as(usize, ctx.hash(undefined, key)) & (size - 1);
+        const start_index = reduceMulHi(ctx.hash(undefined, key), size);
 
         var roll_over = 0;
         var distance_from_start_index = 0;
@@ -48,19 +44,20 @@ pub fn ComptimeHashMap(comptime K: type, comptime V: type, comptime ctx: type, c
             const entry = &slots[index];
 
             if (entry.used and !ctx.eql(undefined, entry.key, key)) {
-                if (entry.distance_from_start_index < distance_from_start_index) {
+                if (distance[index] < distance_from_start_index) {
                     // robin hood to the rescue
                     const tmp = slots[index];
                     max_distance_from_start_index = @max(max_distance_from_start_index, distance_from_start_index);
                     entry.* = .{
                         .used = true,
-                        .distance_from_start_index = distance_from_start_index,
                         .key = key,
                         .val = value,
                     };
+                    const tmp_distance = distance[index];
+                    distance[index] = distance_from_start_index;
                     key = tmp.key;
                     value = tmp.val;
-                    distance_from_start_index = tmp.distance_from_start_index;
+                    distance_from_start_index = tmp_distance;
                 }
                 continue;
             }
@@ -68,10 +65,10 @@ pub fn ComptimeHashMap(comptime K: type, comptime V: type, comptime ctx: type, c
             max_distance_from_start_index = @max(distance_from_start_index, max_distance_from_start_index);
             entry.* = .{
                 .used = true,
-                .distance_from_start_index = distance_from_start_index,
                 .key = key,
                 .val = value,
             };
+            distance[index] = distance_from_start_index;
             continue :slot_loop;
         }
         unreachable; // put into a full map
@@ -85,7 +82,7 @@ pub fn ComptimeHashMap(comptime K: type, comptime V: type, comptime ctx: type, c
         }
 
         pub fn get(key: K) ?*const V {
-            const start_index = @as(usize, ctx.hash(undefined, key)) & (size - 1);
+            const start_index = reduceMulHi(ctx.hash(undefined, key), size);
             {
                 var roll_over: usize = 0;
                 while (roll_over <= max_distance_from_start_index) : (roll_over += 1) {
@@ -101,16 +98,27 @@ pub fn ComptimeHashMap(comptime K: type, comptime V: type, comptime ctx: type, c
     };
 }
 
+fn reduceMulHi(h: u64, m: u64) u64 {
+    // floor((h * m) / 2^64)
+    return @as(u64, @truncate((@as(u128, h) * @as(u128, m)) >> 64));
+}
+
 test "basic usage" {
     const map = ComptimeStringHashMap(usize, .{
         .{ "foo", 1 },
         .{ "bar", 2 },
         .{ "baz", 3 },
         .{ "quux", 4 },
+        .{ "Foo", 1 },
+        .{ "Bar", 2 },
+        .{ "Baz", 3 },
+        .{ "Quux", 4 },
     });
 
     try testing.expect(map.has("foo"));
     try testing.expect(map.has("bar"));
+    try testing.expect(map.has("Foo"));
+    try testing.expect(map.has("Bar"));
     try testing.expect(!map.has("zig"));
     try testing.expect(!map.has("ziguana"));
 
@@ -138,3 +146,31 @@ test "auto comptime hash map" {
     try testing.expect(map.get(4) == null);
     try testing.expect(map.get(4_000_000) == null);
 }
+
+test "array pair comptime hash map" {
+    const map = AutoComptimeHashMap([2]u32, u21, .{
+        .{ .{ 2, 3 }, 5 },
+        .{ .{ 42, 56 }, 12 },
+        .{ .{ 2, 4 }, 6 },
+    });
+    try testing.expect(map.has(.{ 2, 4 }));
+}
+
+test "Next version tripwire" {
+    // Check for the bug on each version bump, if it goes away,
+    // well, that's useful information.
+    const v = @import("builtin").zig_version;
+    if (v.major == 0 and v.minor <= 15) return;
+    const map = AutoComptimeHashMap([2]u21, u21, .{
+        .{ .{ 2, 3 }, 5 },
+        .{ .{ 42, 56 }, 12 },
+        .{ .{ 2, 4 }, 6 },
+    });
+    try testing.expect(map.has(.{ 2, 3 })); // Still buggy :/
+    try testing.expect(map.has(.{ 23, 42 })); // No bug! :D
+}
+
+const std = @import("std");
+const hash_map = std.hash_map;
+const testing = std.testing;
+const math = std.math;
